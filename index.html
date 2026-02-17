@@ -5,57 +5,95 @@
     <style>
         body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; }
         #chat-container { width: 400px; margin-top: 20px; border: 1px solid #ccc; padding: 10px; border-radius: 8px; }
-        #messages { height: 200px; overflow-y: scroll; border-bottom: 1px solid #eee; margin-bottom: 10px; padding: 5px; }
-        .msg { margin-bottom: 5px; font-size: 14px; }
+        
+        #messages { 
+            height: 200px; 
+            overflow-y: scroll; 
+            border-bottom: 1px solid #eee; 
+            margin-bottom: 10px; 
+            padding: 5px; 
+            white-space: pre-wrap; 
+            word-wrap: break-word;
+        }
+
+        .msg { margin-bottom: 8px; font-size: 14px; line-height: 1.4; }
         .msg b { color: #555; }
-        input { width: 70%; padding: 5px; }
-        button { width: 25%; padding: 5px; cursor: pointer; }
+
+        #chat-form { display: flex; flex-direction: column; gap: 5px; }
+        #username { padding: 5px; }
+        
+        #messageInput { 
+            padding: 8px; 
+            height: 50px; 
+            resize: none; 
+            font-family: sans-serif;
+        }
+        
+        input[type="submit"] { padding: 8px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px; }
+        input[type="submit"]:hover { background: #218838; }
     </style>
 </head>
 <body>
 
-    <!-- This is where your sketch will be -->
     <div id="sketch-holder"></div>
 
     <div id="chat-container">
         <div id="messages"></div>
-        <input type="text" id="username" placeholder="Name">
-        <input type="text" id="messageInput" placeholder="Type a message...">
-        <button onclick="sendMessage()">Send</button>
+        <form id="chat-form">
+            <input type="text" id="username" placeholder="Name">
+            <textarea id="messageInput" placeholder="Type a message..."></textarea>
+            <input type="submit" value="Send">
+        </form>
     </div>
 
-    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         // PASTE YOUR FIREBASE CONFIG HERE
         const firebaseConfig = {
-          apiKey: "AIzaSyCbGGh1LGorp_RZsJT0AwkBIR-_S59cpps",
-          authDomain: "jackie-and-bird.firebaseapp.com",
-          projectId: "jackie-and-bird",
-          storageBucket: "jackie-and-bird.firebasestorage.app",
-          messagingSenderId: "816205467203",
-          appId: "1:816205467203:web:fbc11ee15d894f36b78ef6"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "...",
+            appId: "..."
         };
 
-
-        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const messagesRef = ref(db, 'messages');
 
-        // Function to send message
-        window.sendMessage = function() {
-            const user = document.getElementById('username').value || "Anonymous";
-            const text = document.getElementById('messageInput').value;
+        const chatForm = document.getElementById('chat-form');
+        const messageInput = document.getElementById('messageInput');
+        const usernameInput = document.getElementById('username');
+
+        function sendMessage(e) {
+            if (e) e.preventDefault(); 
+            const user = usernameInput.value || "Anonymous";
+            const text = messageInput.value;
+
             if (text.trim() !== "") {
                 push(messagesRef, { username: user, message: text });
-                document.getElementById('messageInput').value = "";
+                messageInput.value = ""; 
             }
         }
 
-        // Listen for live updates
+        chatForm.onsubmit = sendMessage;
+
+        // The specific change requested:
+        messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                if (!e.ctrlKey) {
+                    // If ONLY Enter is pressed: Send
+                    e.preventDefault(); 
+                    sendMessage();
+                } 
+                // If Ctrl + Enter is pressed: Do nothing (allows default new line)
+            }
+        });
+
         const messagesDiv = document.getElementById('messages');
         onChildAdded(messagesRef, (data) => {
             const msg = data.val();
@@ -63,11 +101,11 @@
             el.className = "msg";
             el.innerHTML = `<b>${msg.username}:</b> ${msg.message}`;
             messagesDiv.appendChild(el);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight; // Auto-scroll to bottom
+            messagesDiv.scrollTop = messagesDiv.scrollHeight; 
         });
     </script>
 
     <script src="sketch.js"></script>
 </body>
-</html>
+
 
