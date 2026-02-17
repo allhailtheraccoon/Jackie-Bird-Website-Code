@@ -3,143 +3,100 @@
 <head>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; }
-        #chat-container { width: 400px; margin-top: 20px; border: 1px solid #ccc; padding: 10px; border-radius: 8px; }
-        
-        #messages { 
-            height: 200px; 
-            overflow-y: scroll; 
-            border-bottom: 1px solid #eee; 
-            margin-bottom: 10px; 
-            padding: 5px; 
-            white-space: pre-wrap; 
-            word-wrap: break-word;
-        }
+    body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; }
+    #chat-container { width: 400px; margin-top: 20px; border: 1px solid #ccc; padding: 10px; border-radius: 8px; }
+    
+    #messages { 
+        height: 200px; 
+        overflow-y: scroll; 
+        border-bottom: 1px solid #eee; 
+        margin-bottom: 10px; 
+        padding: 5px; 
+        /* This line ensures line breaks (\n) actually show up as new lines in HTML */
+        white-space: pre-wrap; 
+        word-wrap: break-word;
+    }
 
-        .msg { margin-bottom: 8px; font-size: 14px; line-height: 1.4; }
-        .msg b { color: #555; }
+    .msg { margin-bottom: 8px; font-size: 14px; line-height: 1.4; }
+    .msg b { color: #555; }
 
-        #chat-form { display: flex; flex-direction: column; gap: 5px; }
-        #username { padding: 5px; }
-        
-        #messageInput { 
-            padding: 8px; 
-            height: 50px; 
-            resize: none; 
-            font-family: sans-serif;
-        }
-        
-        input[type="submit"] { padding: 8px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px; }
-        input[type="submit"]:hover { background: #218838; }
-        input:disabled { background: #eee; cursor: not-allowed; }
-    </style>
+    #chat-form { display: flex; flex-direction: column; gap: 5px; }
+    #username { padding: 5px; }
+    
+    /* Style the textarea to look like a chat box */
+    #messageInput { 
+        padding: 8px; 
+        height: 50px; 
+        resize: none; 
+        font-family: sans-serif;
+    }
+    
+    input[type="submit"] { padding: 8px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px; }
+    input[type="submit"]:hover { background: #218838; }
+</style>
 </head>
 <body>
 
+    <!-- This is where your sketch will be -->
     <div id="sketch-holder"></div>
 
-    <div id="chat-container">
-        <div id="messages"></div>
-        <form id="chat-form">
-            <input type="text" id="username" placeholder="Pick a Name (Permanent)">
-            <textarea id="messageInput" placeholder="Type a message..."></textarea>
+   <div id="chat-container">
+    <div id="messages"></div>
+    
+    <!-- Use a real form with onsubmit -->
+    <form id="chat-form">
+        <input type="text" id="username" placeholder="Name">
+        <!-- Textarea allows for multiple lines -->
+        <textarea id="messageInput" placeholder="Type a message..."></textarea>
             <input type="submit" value="Send">
         </form>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, push, onChildAdded, get, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+   <script type="module">
+    // ... (Keep your existing Firebase imports and Config here) ...
 
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            databaseURL: "https://YOUR_PROJECT_ID.firebaseio.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "...",
-            appId: "..."
-        };
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const messagesRef = ref(db, 'messages');
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const messagesRef = ref(db, 'messages');
+    const chatForm = document.getElementById('chat-form');
+    const messageInput = document.getElementById('messageInput');
+    const usernameInput = document.getElementById('username');
 
-        const chatForm = document.getElementById('chat-form');
-        const messageInput = document.getElementById('messageInput');
-        const usernameInput = document.getElementById('username');
+    // Updated sendMessage function
+    function sendMessage(e) {
+        if (e) e.preventDefault(); // Prevents the page from reloading
 
-        // Generate a unique ID for this browser if it doesn't have one
-        if (!localStorage.getItem('chat_uid')) {
-            localStorage.setItem('chat_uid', Math.random().toString(36).substr(2, 9));
+        const user = usernameInput.value || "Anonymous";
+        const text = messageInput.value;
+
+        if (text.trim() !== "") {
+            push(messagesRef, { 
+                username: user, 
+                message: text 
+            });
+            messageInput.value = ""; // Clear the box
         }
-        const myUID = localStorage.getItem('chat_uid');
+    }
 
-        // If this user already has a saved name, lock the input
-        if (localStorage.getItem('saved_username')) {
-            usernameInput.value = localStorage.getItem('saved_username');
-            usernameInput.disabled = true;
+    // Attach the submit event to the form
+    chatForm.onsubmit = sendMessage;
+
+    // Handle Keyboard Shortcuts
+    messageInput.addEventListener('keydown', function(e) {
+        // If "Enter" is pressed
+        if (e.key === 'Enter') {
+            // If Ctrl and Shift are NOT held down, send the message
+            if (!e.ctrlKey) {
+                e.preventDefault(); // Don't make a new line
+                sendMessage();      // Run the send function
+            } 
+            // If Ctrl + Shift + Enter are held, allow the default (new line)
         }
+    });
 
-        async function sendMessage(e) {
-            if (e) e.preventDefault(); 
-            
-            const user = usernameInput.value.trim();
-            const text = messageInput.value;
-
-            if (user === "") {
-                alert("Place your identity into this box and we'll put it in other boxes automatically. Man, this kinda became a commentary on capitalism really quickly didn't it?");
-                return;
-            }
-
-            // 1. Check if name is taken
-            const nameRef = ref(db, 'takenNames/' + user);
-            const snapshot = await get(nameRef);
-
-            if (snapshot.exists()) {
-                // Name exists in DB, check if it belongs to THIS browser
-                if (snapshot.val() !== myUID) {
-                    alert("This name may already be being used by someone else... I can neither confirm nor deny... ok, you got me... it is... don't use this to mine a list of user names or... or I'll be sad");
-                    return;
-                }
-            } else {
-                // Name is free! Claim it.
-                await set(nameRef, myUID);
-                localStorage.setItem('saved_username', user);
-                usernameInput.disabled = true;
-            }
-
-            // 2. Send the message
-            if (text.trim() !== "") {
-                push(messagesRef, { username: user, message: text });
-                messageInput.value = ""; 
-            }
-        }
-
-        chatForm.onsubmit = sendMessage;
-
-        messageInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                if (!e.ctrlKey) {
-                    e.preventDefault(); 
-                    sendMessage();
-                } 
-            }
-        });
-
-        const messagesDiv = document.getElementById('messages');
-        onChildAdded(messagesRef, (data) => {
-            const msg = data.val();
-            const el = document.createElement('div');
-            el.className = "msg";
-            el.innerHTML = `<b>${msg.username}:</b> ${msg.message}`;
-            messagesDiv.appendChild(el);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight; 
-        });
-    </script>
-
+    // ... (Keep your existing onChildAdded listener below) ...
+</script>
     <script src="sketch.js"></script>
 </body>
 </html>
-
-
