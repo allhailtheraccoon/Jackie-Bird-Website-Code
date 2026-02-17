@@ -31,6 +31,7 @@
         
         input[type="submit"] { padding: 8px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 4px; }
         input[type="submit"]:hover { background: #218838; }
+        input:disabled { background: #eee; cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -40,7 +41,7 @@
     <div id="chat-container">
         <div id="messages"></div>
         <form id="chat-form">
-            <input type="text" id="username" placeholder="Name">
+            <input type="text" id="username" placeholder="Pick a Name (Permanent)">
             <textarea id="messageInput" placeholder="Type a message..."></textarea>
             <input type="submit" value="Send">
         </form>
@@ -48,9 +49,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, push, onChildAdded, get, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // PASTE YOUR FIREBASE CONFIG HERE
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
@@ -69,11 +69,47 @@
         const messageInput = document.getElementById('messageInput');
         const usernameInput = document.getElementById('username');
 
-        function sendMessage(e) {
+        // Generate a unique ID for this browser if it doesn't have one
+        if (!localStorage.getItem('chat_uid')) {
+            localStorage.setItem('chat_uid', Math.random().toString(36).substr(2, 9));
+        }
+        const myUID = localStorage.getItem('chat_uid');
+
+        // If this user already has a saved name, lock the input
+        if (localStorage.getItem('saved_username')) {
+            usernameInput.value = localStorage.getItem('saved_username');
+            usernameInput.disabled = true;
+        }
+
+        async function sendMessage(e) {
             if (e) e.preventDefault(); 
-            const user = usernameInput.value || "Anonymous";
+            
+            const user = usernameInput.value.trim();
             const text = messageInput.value;
 
+            if (user === "") {
+                alert("Place your identity into this box and we'll put it in other boxes automatically. Man, this kinda became a commentary on capitalism really quickling didn't it?");
+                return;
+            }
+
+            // 1. Check if name is taken
+            const nameRef = ref(db, 'takenNames/' + user);
+            const snapshot = await get(nameRef);
+
+            if (snapshot.exists()) {
+                // Name exists in DB, check if it belongs to THIS browser
+                if (snapshot.val() !== myUID) {
+                    alert("This name may already be being used by someone else... I can neither confirm nor deny... ok, you got me... it is... don't use this to mine a list of user names or... or I'll be sad");
+                    return;
+                }
+            } else {
+                // Name is free! Claim it.
+                await set(nameRef, myUID);
+                localStorage.setItem('saved_username', user);
+                usernameInput.disabled = true;
+            }
+
+            // 2. Send the message
             if (text.trim() !== "") {
                 push(messagesRef, { username: user, message: text });
                 messageInput.value = ""; 
@@ -82,15 +118,12 @@
 
         chatForm.onsubmit = sendMessage;
 
-        // The specific change requested:
         messageInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 if (!e.ctrlKey) {
-                    // If ONLY Enter is pressed: Send
                     e.preventDefault(); 
                     sendMessage();
                 } 
-                // If Ctrl + Enter is pressed: Do nothing (allows default new line)
             }
         });
 
@@ -107,5 +140,5 @@
 
     <script src="sketch.js"></script>
 </body>
-
+</html>
 
